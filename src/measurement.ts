@@ -19,6 +19,23 @@ export class HeadMonitor {
   }
 
   private async run(): Promise<void> {
+    const blockStream = this.streamBlocks();
+
+    for await (const { blockNumber, timestamp } of blockStream) {
+      const reference = await this.fetchReferenceTimestamp(blockNumber);
+
+      if (reference === undefined) {
+        continue;
+      }
+
+      const delay = timestamp - reference;
+      
+      // TODO: report delay to prometheus
+      this.log(`block ${blockNumber} delay: ${delay}ms`);
+    }
+  }
+
+  private async* streamBlocks(): AsyncGenerator<{ blockNumber: number; timestamp: number }> {
     let lastBlock = await this.getLastBlock();
     this.log("Starting streaming from block", lastBlock + 1);
 
@@ -30,9 +47,11 @@ export class HeadMonitor {
           body: this.genQuery(lastBlock + 1, this.measurement.target.dataset_kind),
           signal: AbortSignal.timeout(10000)
         });
-        if (response.status == 204) {
+
+        if (response.status === 204) {
           continue;
         }
+
         if (!response.ok) {
           const body = await response.text();
           throw new Error(`HTTP ${response.status} ${body}`);
@@ -47,19 +66,10 @@ export class HeadMonitor {
 
         if (blockData.header && typeof blockData.header.number === 'number') {
           lastBlock = blockData.header.number;
+          yield { blockNumber: lastBlock, timestamp };
         } else {
           throw new Error(`Invalid block in response: ${lastLine}`);
         }
-
-        const reference = await this.fetchReferenceTimestamp(lastBlock);
-
-        if (reference === undefined) {
-          continue;
-        }
-        const delay = timestamp - reference;
-
-        // TODO: report delay to prometheus
-        this.log(`block ${lastBlock} delay: ${delay}ms`);
       } catch (error) {
         this.log(`error during stream request to ${this.measurement.target.url}, retrying:`, error);
       }

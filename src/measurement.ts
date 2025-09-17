@@ -51,9 +51,17 @@ export class HeadMonitor {
           throw new Error(`Invalid block in response: ${lastLine}`);
         }
 
-        this.log(`got block ${lastBlock} at ${timestamp}`);
+        const reference = await this.fetchReferenceTimestamp(lastBlock);
+
+        if (reference === undefined) {
+          continue;
+        }
+        const delay = timestamp - reference;
+
+        // TODO: report delay to prometheus
+        this.log(`block ${lastBlock} delay: ${delay}ms`);
       } catch (error) {
-        this.log(`error during stream request to ${this.measurement.target.url}, retrying: `, error);
+        this.log(`error during stream request to ${this.measurement.target.url}, retrying:`, error);
       }
     }
   }
@@ -74,10 +82,39 @@ export class HeadMonitor {
           throw new Error(`HTTP ${response.status} ${body}`);
         }
       } catch (error) {
-        console.log(`Couldn't fetch head from ${head_url}, retrying in 500ms: `, error);
+        console.log(`Couldn't fetch head from ${head_url}, retrying in 500ms:`, error);
         await sleep(500);
       }
     }
+  }
+
+  private async fetchReferenceTimestamp(block: number): Promise<number | undefined> {
+    const futures = this.measurement.reference.urls.map(async (base) => {
+      const url = `${base}/block-time/${block}`;
+      try {
+        const response = await fetch(url.toString(), {
+          method: 'GET',
+          signal: AbortSignal.timeout(5000)
+        });
+        if (response.status === 404) {
+          return undefined;
+        }
+        if (!response.ok) {
+          const body = await response.text();
+          throw new Error(`HTTP ${response.status} ${body}`);
+        }
+
+        return Number.parseInt(await response.text());
+      } catch (error) {
+        this.log(`request to ${url} failed:`, error);
+      }
+    });
+    const results = (await Promise.all(futures)).filter((x) => x !== undefined) as number[];
+
+    if (results.length === 0) {
+      return;
+    }
+    return Math.min(...results);
   }
 
   private genQuery(fromBlock: number, kind: string): string {

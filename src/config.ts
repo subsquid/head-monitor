@@ -9,6 +9,7 @@ export interface BlockTimeApi {
 
 export interface PortalApi {
   kind: 'portal_api';
+  dataset_kind: 'evm' | 'solana';
   url: string;
 }
 
@@ -91,5 +92,9 @@ function validateMeasurement(measurement: any, datasetName: string, measurementN
 
   if (!measurement.target.url || typeof measurement.target.url !== 'string') {
     throw new Error(`Invalid measurement ${measurementName} in dataset ${datasetName}: target url must be a string`);
+  }
+
+  if (!measurement.target.dataset_kind || !['evm', 'solana'].includes(measurement.target.dataset_kind)) {
+    throw new Error(`Invalid measurement ${measurementName} in dataset ${datasetName}: target dataset_kind must be 'evm' or 'solana'`);
   }
 }

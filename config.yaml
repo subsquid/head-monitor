@@ -1,0 +1,23 @@
+datasets:
+  solana-mainnet:
+    measurements:
+      processing_time:
+        reference:
+          kind: block_time_api
+          urls:
+            - http://localhost:3000
+            - http://localhost:3001
+            - http://localhost:3002
+        target:
+          kind: portal_api
+          url: https://portal.sqd.dev/datasets/solana-mainnet/
+  ethereum-mainnet:
+    measurements:
+      processing_time:
+        reference:
+          kind: block_time_api
+          urls:
+            - http://localhost:4000
+        target:
+          kind: portal_api
+          url: https://portal.sqd.dev/datasets/ethereum-mainnet/

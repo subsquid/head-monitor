@@ -1,5 +1,6 @@
 import { Measurement } from './config';
 import { sleep } from './utils';
+import { recordDelay } from './metrics';
 
 export class HeadMonitor {
   public readonly datasetName: string;
@@ -30,7 +31,7 @@ export class HeadMonitor {
 
       const delay = timestamp - reference;
       
-      // TODO: report delay to prometheus
+      recordDelay(this.datasetName, this.measurementName, delay);
       this.log(`block ${blockNumber} delay: ${delay}ms`);
     }
   }

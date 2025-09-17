@@ -1,6 +1,6 @@
 {
   "name": "head-monitor",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "description": "",
   "main": "index.js",
   "scripts": {
@@ -19,6 +19,8 @@
     "typescript": "^5.9.2"
   },
   "dependencies": {
+    "commander": "^14.0.1",
+    "prom-client": "^15.1.3",
     "yaml": "^2.8.1"
   }
 }

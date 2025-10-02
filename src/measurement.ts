@@ -30,7 +30,7 @@ export class HeadMonitor {
       }
 
       const delay = timestamp - reference;
-      
+
       recordDelay(this.datasetName, this.measurementName, delay);
       this.log(`block ${blockNumber} delay: ${delay}ms`);
     }
@@ -65,12 +65,15 @@ export class HeadMonitor {
         const lastLine = lines[lines.length - 1];
         const blockData = JSON.parse(lastLine);
 
-        if (blockData.header && typeof blockData.header.number === 'number') {
-          lastBlock = blockData.header.number;
-          yield { blockNumber: lastBlock, timestamp };
-        } else {
+        if (!blockData.header || typeof blockData.header.number !== 'number') {
           throw new Error(`Invalid block in response: ${lastLine}`);
         }
+        const newBlock = blockData.header.number;
+
+        for (let i = lastBlock + 1; i <= newBlock; i++) {
+          yield { blockNumber: i, timestamp };
+        }
+        lastBlock = newBlock;
       } catch (error) {
         this.log(`error during stream request to ${this.measurement.target.url}, retrying:`, error);
       }

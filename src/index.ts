@@ -7,7 +7,6 @@ function parseArgs(): { port: number; config?: string } {
   program
     .name('head-monitor')
     .description('Monitor blockchain head processing delays')
-    .version('0.0.1')
     .option('-p, --port <port>', 'Port for metrics server', '3000')
     .option('-c, --config <file>', 'Config file path', 'config.yaml');
 

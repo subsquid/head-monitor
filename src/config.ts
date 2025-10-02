@@ -45,11 +45,11 @@ function validateConfig(config: any): asserts config is Config {
     throw new Error('Invalid config: must be an object');
   }
 
-  if (!config.datasets || typeof config.datasets !== 'object') {
+  if (typeof config.datasets !== 'object') {
     throw new Error('Invalid config: datasets must be an object');
   }
 
-  for (const [datasetName, dataset] of Object.entries(config.datasets)) {
+  for (const [datasetName, dataset] of Object.entries(config.datasets ?? {})) {
     validateDataset(dataset, datasetName);
   }
 }

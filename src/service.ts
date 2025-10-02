@@ -17,7 +17,7 @@ export class Service {
     await this.metricsServer.start();
     console.log(`Metrics server listening on port ${this.port}`);
 
-    for (const [datasetName, dataset] of Object.entries(this.config.datasets)) {
+    for (const [datasetName, dataset] of Object.entries(this.config.datasets ?? {})) {
       for (const [measurementName, measurement] of Object.entries(dataset.measurements)) {
         console.log(`Monitoring ${datasetName}.${measurementName}`);
 

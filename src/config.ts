@@ -9,7 +9,7 @@ export interface BlockTimeApi {
 
 export interface PortalApi {
   kind: 'portal_api';
-  dataset_kind: 'evm' | 'solana';
+  dataset_kind: 'evm' | 'solana' | 'hyperliquidFills';
   url: string;
 }
 
@@ -94,7 +94,7 @@ function validateMeasurement(measurement: any, datasetName: string, measurementN
     throw new Error(`Invalid measurement ${measurementName} in dataset ${datasetName}: target url must be a string`);
   }
 
-  if (!measurement.target.dataset_kind || !['evm', 'solana'].includes(measurement.target.dataset_kind)) {
-    throw new Error(`Invalid measurement ${measurementName} in dataset ${datasetName}: target dataset_kind must be 'evm' or 'solana'`);
+  if (!measurement.target.dataset_kind || !['evm', 'solana', 'hyperliquidFills'].includes(measurement.target.dataset_kind)) {
+    throw new Error(`Invalid measurement ${measurementName} in dataset ${datasetName}: target dataset_kind must be 'evm' or 'solana' or 'hyperliquidFills'`);
   }
 }

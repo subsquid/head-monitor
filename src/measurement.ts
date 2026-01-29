@@ -1,4 +1,4 @@
-import { Measurement } from './config';
+import { Measurement, PortalApi } from './config';
 import { sleep } from './utils';
 import { recordDelay } from './metrics';
 
@@ -131,8 +131,20 @@ export class HeadMonitor {
     return Math.min(...results);
   }
 
-  private genQuery(fromBlock: number, kind: string): string {
-    return JSON.stringify({ fromBlock, type: kind, fields: { block: { number: true } } });
+  private genQuery(fromBlock: number, kind: PortalApi['dataset_kind']): string {
+    let type = this.getQueryType(kind)
+    return JSON.stringify({ fromBlock, type, fields: { block: { number: true } } });
+  }
+
+  private getQueryType(kind: PortalApi['dataset_kind']): string {
+    switch (kind) {
+      case 'hyperliquid-fills':
+        return 'hyperliquidFills'
+      case 'hyperliquid-replica-cmds':
+        return 'hyperliquidReplicaCmds'
+      default:
+        return kind
+    }
   }
 
   private log(msg: string, ...args: any[]) {

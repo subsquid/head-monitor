@@ -1,5 +1,5 @@
 import { Measurement, PortalApi } from './config';
-import { sleep } from './utils';
+import { sleep, getRetryAfterMs } from './utils';
 import { recordDelay } from './metrics';
 
 export class HeadMonitor {
@@ -53,6 +53,13 @@ export class HeadMonitor {
           continue;
         }
 
+        if (response.status === 503) {
+          const delayMs = getRetryAfterMs(response, 1000);
+          this.log(`got 503, retrying in ${delayMs}ms`);
+          await sleep(delayMs);
+          continue;
+        }
+
         if (!response.ok) {
           const body = await response.text();
           throw new Error(`HTTP ${response.status} ${body}`);
@@ -75,7 +82,8 @@ export class HeadMonitor {
         }
         lastBlock = newBlock;
       } catch (error) {
-        this.log(`error during stream request to ${this.measurement.target.url}, retrying:`, error);
+        this.log(`error during stream request to ${this.measurement.target.url}, retrying in 1000ms:`, error);
+        await sleep(1000);
       }
     }
   }
@@ -91,13 +99,17 @@ export class HeadMonitor {
         if (response.ok) {
           const head = await response.json();
           return head["number"];
+        } else if (response.status === 503) {
+          const delayMs = getRetryAfterMs(response, 1000);
+          console.log(`Couldn't fetch head from ${head_url}, got 503, retrying in ${delayMs}ms`);
+          await sleep(delayMs);
         } else {
-          const body = response.text();
+          const body = await response.text();
           throw new Error(`HTTP ${response.status} ${body}`);
         }
       } catch (error) {
-        console.log(`Couldn't fetch head from ${head_url}, retrying in 500ms:`, error);
-        await sleep(500);
+        console.log(`Couldn't fetch head from ${head_url}, retrying in 1000ms:`, error);
+        await sleep(1000);
       }
     }
   }

@@ -45,6 +45,9 @@ export class HeadMonitor {
         const stream_url = `${this.measurement.target.url}/stream`;
         const response = await fetch(stream_url.toString(), {
           method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
           body: this.genQuery(lastBlock + 1, this.measurement.target.dataset_kind),
           signal: AbortSignal.timeout(10000)
         });

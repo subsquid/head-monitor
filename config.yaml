@@ -12,6 +12,8 @@ datasets:
           dataset_kind: evm
           url: https://portal.sqd.dev/datasets/base-mainnet
   solana-mainnet:
+    readiness:
+      max_lag_seconds: 30
     measurements:
       processing_time:
         reference:

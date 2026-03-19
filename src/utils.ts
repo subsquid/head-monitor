@@ -2,6 +2,13 @@ export function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+export function toMilliseconds(timestamp: number): number {
+  if (timestamp < 1e12) {
+    return timestamp * 1000;
+  }
+  return timestamp;
+}
+
 export function getRetryAfterMs(response: Response, defaultMs: number): number {
   const header = response.headers.get('Retry-After');
   if (header == null) return defaultMs;

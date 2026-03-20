@@ -25,7 +25,7 @@ export class MetricsServer {
             res.writeHead(500, { 'Content-Type': 'text/plain' });
             res.end(`Error generating metrics: ${error}`);
           }
-        } else if (req.url === '/ready' && req.method === 'GET') {
+        } else if (req.url === '/upstream-ready' && req.method === 'GET') {
           const ready = this.isReady();
           const status = ready ? 200 : 503;
           res.writeHead(status, { 'Content-Type': 'text/plain' });

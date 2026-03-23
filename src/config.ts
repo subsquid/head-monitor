@@ -18,8 +18,13 @@ export interface Measurement {
   target: PortalApi;
 }
 
+export interface Readiness {
+  max_lag_seconds: number;
+}
+
 export interface Dataset {
   measurements: Record<string, Measurement>;
+  readiness?: Readiness;
 }
 
 export interface Config {
@@ -59,6 +64,10 @@ function validateDataset(dataset: any, datasetName: string): asserts dataset is 
     throw new Error(`Invalid dataset ${datasetName}: must be an object`);
   }
 
+  if (dataset.readiness) {
+    validateReadiness(dataset.readiness, datasetName)
+  }
+
   if (!dataset.measurements || typeof dataset.measurements !== 'object') {
     throw new Error(`Invalid dataset ${datasetName}: measurements must be an object`);
   }
@@ -96,5 +105,19 @@ function validateMeasurement(measurement: any, datasetName: string, measurementN
 
   if (!measurement.target.dataset_kind || !['evm', 'solana', 'bitcoin', 'hyperliquid-fills', 'hyperliquid-replica-cmds'].includes(measurement.target.dataset_kind)) {
     throw new Error(`Invalid measurement ${measurementName} in dataset ${datasetName}: target dataset_kind must be 'evm' or 'solana' or 'bitcoin' or 'hyperliquid-fills' or 'hyperliquid-replica-cmds'`);
+  }
+}
+
+function validateReadiness(readiness: any, datasetName: string): asserts readiness is Readiness {
+  if (typeof readiness !== 'object') {
+    throw new Error(`Invalid dataset ${datasetName}: readiness must be an object`);
+  }
+
+  if (readiness.max_lag_seconds == null) {
+    throw new Error(`Invalid dataset ${datasetName}: readiness max lag seconds is required`);
+  }
+
+  if (typeof readiness.max_lag_seconds !== 'number' || readiness.max_lag_seconds <= 0) {
+    throw new Error(`Invalid dataset ${datasetName}: readiness max lag seconds must be a positive number`)
   }
 }

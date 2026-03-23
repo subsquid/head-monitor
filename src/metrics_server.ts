@@ -4,9 +4,11 @@ import { getMetricsRegistry } from './metrics';
 export class MetricsServer {
   private server?: http.Server;
   private readonly port: number;
+  private readonly isReady: () => boolean;
 
-  constructor(port: number = 3000) {
+  constructor(port: number = 3000, isReady: () => boolean) {
     this.port = port;
+    this.isReady = isReady;
   }
 
   start(): Promise<void> {
@@ -23,6 +25,11 @@ export class MetricsServer {
             res.writeHead(500, { 'Content-Type': 'text/plain' });
             res.end(`Error generating metrics: ${error}`);
           }
+        } else if (req.url === '/upstream-ready' && req.method === 'GET') {
+          const ready = this.isReady();
+          const status = ready ? 200 : 503;
+          res.writeHead(status, { 'Content-Type': 'text/plain' });
+          res.end(ready ? 'OK' : 'Not Ready');
         } else {
           res.writeHead(404, { 'Content-Type': 'text/plain' });
           res.end('Not Found');

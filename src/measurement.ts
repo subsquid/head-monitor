@@ -1,11 +1,12 @@
 import { Measurement, PortalApi } from './config';
-import { sleep, getRetryAfterMs } from './utils';
+import { sleep, getRetryAfterMs, toMilliseconds } from './utils';
 import { recordDelay } from './metrics';
 
 export class HeadMonitor {
   public readonly datasetName: string;
   public readonly measurementName: string;
   public readonly measurement: Measurement;
+  public lastBlockTimestamp?: number;
 
   constructor(
     datasetName: string,
@@ -84,6 +85,7 @@ export class HeadMonitor {
           yield { blockNumber: i, timestamp };
         }
         lastBlock = newBlock;
+        this.lastBlockTimestamp = toMilliseconds(blockData.header.timestamp);
       } catch (error) {
         this.log(`error during stream request to ${this.measurement.target.url}, retrying in 1000ms:`, error);
         await sleep(1000);
@@ -148,7 +150,7 @@ export class HeadMonitor {
 
   private genQuery(fromBlock: number, kind: PortalApi['dataset_kind']): string {
     let type = this.getQueryType(kind)
-    return JSON.stringify({ fromBlock, type, fields: { block: { number: true } } });
+    return JSON.stringify({ fromBlock, type, fields: { block: { number: true, timestamp: true } } });
   }
 
   private getQueryType(kind: PortalApi['dataset_kind']): string {

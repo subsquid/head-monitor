@@ -47,7 +47,8 @@ export class HeadMonitor {
         const response = await fetch(stream_url.toString(), {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'x-sqd-client-id': 'head-monitor'
           },
           body: this.genQuery(lastBlock + 1, this.measurement.target.dataset_kind),
           signal: AbortSignal.timeout(10000)
@@ -99,6 +100,10 @@ export class HeadMonitor {
       try {
         const response = await fetch(head_url.toString(), {
           method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-sqd-client-id': 'head-monitor'
+          },
           signal: AbortSignal.timeout(5000)
         });
         if (response.ok) {

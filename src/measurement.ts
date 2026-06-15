@@ -7,6 +7,7 @@ export class HeadMonitor {
   public readonly measurementName: string;
   public readonly measurement: Measurement;
   public lastBlockTimestamp?: number;
+  private measuring = false;
 
   constructor(
     datasetName: string,
@@ -23,18 +24,37 @@ export class HeadMonitor {
   private async run(): Promise<void> {
     const blockStream = this.streamBlocks();
 
+    // Consume the target stream at its own pace so `lastBlockTimestamp`
+    // (which drives readiness) tracks the head regardless of how healthy the
+    // reference data services are. The delay measurement queries those
+    // reference services, so it must NOT backpressure the stream: run it
+    // single-flight (skip overlapping blocks) instead of awaiting per block.
     for await (const { blockNumber, timestamp } of blockStream) {
-      const reference = await this.fetchReferenceTimestamp(blockNumber);
-
-      if (reference === undefined) {
-        continue;
-      }
-
-      const delay = timestamp - reference;
-
-      recordDelay(this.datasetName, this.measurementName, delay);
-      this.log(`block ${blockNumber} delay: ${delay}ms`);
+      this.measureDelay(blockNumber, timestamp);
     }
+  }
+
+  private measureDelay(blockNumber: number, timestamp: number): void {
+    if (this.measuring) {
+      return;
+    }
+    this.measuring = true;
+    this.doMeasureDelay(blockNumber, timestamp)
+      .catch((error) => this.log(`delay measurement failed:`, error))
+      .finally(() => { this.measuring = false; });
+  }
+
+  private async doMeasureDelay(blockNumber: number, timestamp: number): Promise<void> {
+    const reference = await this.fetchReferenceTimestamp(blockNumber);
+
+    if (reference === undefined) {
+      return;
+    }
+
+    const delay = timestamp - reference;
+
+    recordDelay(this.datasetName, this.measurementName, delay);
+    this.log(`block ${blockNumber} delay: ${delay}ms`);
   }
 
   private async* streamBlocks(): AsyncGenerator<{ blockNumber: number; timestamp: number }> {

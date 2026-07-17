@@ -1,4 +1,5 @@
 import { Config, loadConfig } from './config';
+import { logger } from './logger';
 import { HeadMonitor } from './measurement';
 import { MetricsServer } from './metrics_server';
 
@@ -17,12 +18,19 @@ export class Service {
 
   async start(): Promise<void> {
     await this.metricsServer.start();
-    console.log(`Metrics server listening on port ${this.port}`);
+    logger.info({
+      message: `Metrics server listening on port ${this.port}`,
+      port: this.port,
+    });
 
     for (const [datasetName, dataset] of Object.entries(this.config.datasets ?? {})) {
       let monitors = [];
       for (const [measurementName, measurement] of Object.entries(dataset.measurements)) {
-        console.log(`Monitoring ${datasetName}.${measurementName}`);
+        logger.info({
+          message: `Monitoring ${datasetName}.${measurementName}`,
+          datasetName,
+          measurementName,
+        });
 
         monitors.push(new HeadMonitor(
           datasetName,

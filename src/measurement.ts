@@ -1,6 +1,8 @@
 import { Measurement, PortalApi } from './config';
+import { ensureError, logger } from './logger';
 import { sleep, getRetryAfterMs, toMilliseconds } from './utils';
 import { recordDelay } from './metrics';
+import type { Logger } from 'pino';
 
 export class HeadMonitor {
   public readonly datasetName: string;
@@ -8,6 +10,7 @@ export class HeadMonitor {
   public readonly measurement: Measurement;
   public lastBlockTimestamp?: number;
   private measuring = false;
+  private readonly logger: Logger;
 
   constructor(
     datasetName: string,
@@ -17,6 +20,7 @@ export class HeadMonitor {
     this.datasetName = datasetName;
     this.measurementName = measurementName;
     this.measurement = measurement;
+    this.logger = logger.child({ datasetName, measurementName });
 
     this.run();
   }
@@ -40,7 +44,10 @@ export class HeadMonitor {
     }
     this.measuring = true;
     this.doMeasureDelay(blockNumber, timestamp)
-      .catch((error) => this.log(`delay measurement failed:`, error))
+      .catch((error) => this.logger.error({
+        message: 'Delay measurement failed',
+        error: ensureError(error),
+      }))
       .finally(() => { this.measuring = false; });
   }
 
@@ -54,12 +61,19 @@ export class HeadMonitor {
     const delay = timestamp - reference;
 
     recordDelay(this.datasetName, this.measurementName, delay);
-    this.log(`block ${blockNumber} delay: ${delay}ms`);
+    this.logger.debug({
+      message: `Block ${blockNumber} delay: ${delay}ms`,
+      blockNumber,
+      delayMs: delay,
+    });
   }
 
   private async* streamBlocks(): AsyncGenerator<{ blockNumber: number; timestamp: number }> {
     let lastBlock = await this.getLastBlock();
-    this.log("Starting streaming from block", lastBlock + 1);
+    this.logger.info({
+      message: `Starting stream from block ${lastBlock + 1}`,
+      fromBlock: lastBlock + 1,
+    });
 
     while (true) {
       try {
@@ -80,7 +94,11 @@ export class HeadMonitor {
 
         if (response.status === 503) {
           const delayMs = getRetryAfterMs(response, 1000);
-          this.log(`got 503, retrying in ${delayMs}ms`);
+          this.logger.warn({
+            message: `Stream request returned 503, retrying in ${delayMs}ms`,
+            statusCode: response.status,
+            retryDelayMs: delayMs,
+          });
           await sleep(delayMs);
           continue;
         }
@@ -108,7 +126,12 @@ export class HeadMonitor {
         lastBlock = newBlock;
         this.lastBlockTimestamp = toMilliseconds(blockData.header.timestamp);
       } catch (error) {
-        this.log(`error during stream request to ${this.measurement.target.url}, retrying in 1000ms:`, error);
+        this.logger.error({
+          message: `Stream request to ${this.measurement.target.url} failed, retrying in 1000ms`,
+          error: ensureError(error),
+          url: this.measurement.target.url,
+          retryDelayMs: 1000,
+        });
         await sleep(1000);
       }
     }
@@ -131,14 +154,24 @@ export class HeadMonitor {
           return head["number"];
         } else if (response.status === 503) {
           const delayMs = getRetryAfterMs(response, 1000);
-          console.log(`Couldn't fetch head from ${head_url}, got 503, retrying in ${delayMs}ms`);
+          this.logger.warn({
+            message: `Head request to ${head_url} returned 503, retrying in ${delayMs}ms`,
+            statusCode: response.status,
+            url: head_url,
+            retryDelayMs: delayMs,
+          });
           await sleep(delayMs);
         } else {
           const body = await response.text();
           throw new Error(`HTTP ${response.status} ${body}`);
         }
       } catch (error) {
-        console.log(`Couldn't fetch head from ${head_url}, retrying in 1000ms:`, error);
+        this.logger.error({
+          message: `Head request to ${head_url} failed, retrying in 1000ms`,
+          error: ensureError(error),
+          url: head_url,
+          retryDelayMs: 1000,
+        });
         await sleep(1000);
       }
     }
@@ -162,7 +195,11 @@ export class HeadMonitor {
 
         return Number.parseInt(await response.text());
       } catch (error) {
-        this.log(`request to ${url} failed:`, error);
+        this.logger.error({
+          message: `Reference timestamp request to ${url} failed`,
+          error: ensureError(error),
+          url,
+        });
       }
     });
     const results = (await Promise.all(futures)).filter((x) => x !== undefined) as number[];
@@ -189,7 +226,4 @@ export class HeadMonitor {
     }
   }
 
-  private log(msg: string, ...args: any[]) {
-    console.log(`[${this.datasetName}.${this.measurementName}] ${msg}`, ...args);
-  }
 }

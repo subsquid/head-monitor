@@ -1,5 +1,6 @@
 import { Service } from './service';
 import { Command } from 'commander';
+import { ensureError, logger } from './logger';
 
 function parseArgs(): { port: number; config?: string } {
   const program = new Command();
@@ -16,7 +17,7 @@ function parseArgs(): { port: number; config?: string } {
   const port = parseInt(options.port, 10);
 
   if (isNaN(port) || port < 1 || port > 65535) {
-    console.error('Error: Port must be a number between 1 and 65535');
+    logger.error({ message: 'Port must be a number between 1 and 65535' });
     process.exit(1);
   }
 
@@ -36,9 +37,18 @@ async function main() {
     // Keep the process alive
     await new Promise(() => { });
   } catch (error) {
-    console.error('Failed to start:', error);
+    logger.error({
+      message: 'Failed to start head monitor',
+      error: ensureError(error),
+    });
     process.exit(1);
   }
 }
 
-main().catch(console.error);
+main().catch((error) => {
+  logger.fatal({
+    message: 'Unexpected head monitor failure',
+    error: ensureError(error),
+  });
+  process.exit(1);
+});

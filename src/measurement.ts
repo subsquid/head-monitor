@@ -1,6 +1,6 @@
 import { Measurement, PortalApi } from './config';
 import { ensureError, logger } from './logger';
-import { sleep, getRetryAfterMs, toMilliseconds } from './utils';
+import { sleep, getRetryAfterMs, toMilliseconds, EndpointBackoff } from './utils';
 import { recordDelay } from './metrics';
 import type { Logger } from 'pino';
 
@@ -11,6 +11,7 @@ export class HeadMonitor {
   public lastBlockTimestamp?: number;
   private measuring = false;
   private readonly logger: Logger;
+  private readonly referenceBackoff = new EndpointBackoff();
 
   constructor(
     datasetName: string,
@@ -179,13 +180,20 @@ export class HeadMonitor {
 
   private async fetchReferenceTimestamp(block: number): Promise<number | undefined> {
     const futures = this.measurement.reference.urls.map(async (base) => {
+      if (this.referenceBackoff.shouldSkip(base)) {
+        return undefined;
+      }
+
       const url = `${base}/block-time/${block}`;
       try {
         const response = await fetch(url.toString(), {
           method: 'GET',
           signal: AbortSignal.timeout(5000)
         });
+        // 404 just means the reference has not reached this block yet -- the
+        // endpoint answered, so it is healthy.
         if (response.status === 404) {
+          this.referenceBackoff.recordSuccess(base);
           return undefined;
         }
         if (!response.ok) {
@@ -193,12 +201,16 @@ export class HeadMonitor {
           throw new Error(`HTTP ${response.status} ${body}`);
         }
 
+        this.referenceBackoff.recordSuccess(base);
         return Number.parseInt(await response.text());
       } catch (error) {
+        const retryDelayMs = this.referenceBackoff.recordFailure(base);
         this.logger.error({
-          message: `Reference timestamp request to ${url} failed`,
+          message: `Reference timestamp request to ${url} failed, skipping this reference for ${retryDelayMs}ms`,
           error: ensureError(error),
           url,
+          retryDelayMs,
+          consecutiveFailures: this.referenceBackoff.failureCount(base),
         });
       }
     });
